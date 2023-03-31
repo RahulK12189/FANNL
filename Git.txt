@@ -1,0 +1,120 @@
+lWCFilterSearchDatatable.html :
+
+<template>
+    <lightning-card title="Accounts" icon-name="standard:account">
+        <div class="slds-m-around_medium">
+            <lightning-layout multiple-rows>
+                <lightning-layout-item size="6" padding="around-small"></lightning-layout-item>
+                <lightning-layout-item size="6" padding="around-small">
+                    <lightning-input type="search" label="Search Account" onchange={handleSearch}></lightning-input>
+                </lightning-layout-item>
+            </lightning-layout>
+            <template if:true={data}>
+                <lightning-datatable key-field="Id" data={data} columns={columns} hide-checkbox-column="true"
+                    show-row-number-column="true" onrowaction={handleRowAction}>
+                </lightning-datatable>
+            </template>
+            <template if:true={error}>
+                {error}>
+            </template>
+        </div>
+    </lightning-card>
+</template>
+
+***************************************************************************************
+
+DataController.cls :
+
+
+public with sharing class DataController {
+     
+    @AuraEnabled (cacheable=true)
+    public static List<Account> retrieveAccounts(){
+        return [SELECT Id, Name, Type, BillingCountry, Industry, Email__c
+                FROM Account
+                LIMIT 2000];
+    }
+}
+
+*****************************************************************************************
+
+
+lWCFilterSearchDatatable.js :
+
+import { LightningElement, wire, track } from 'lwc';
+import retrieveAccounts from '@salesforce/apex/DataController.retrieveAccounts';
+ 
+const columns = [
+    { label: 'Name', fieldName: 'Name' },
+    { label: 'Type', fieldName: 'Type' },
+    { label: 'Email', fieldName: 'Email__c', type: 'email' },
+    { label: 'BillingCountry', fieldName: 'BillingCountry' },
+];
+ 
+export default class LWCFilterSearchDatatable extends LightningElement {
+    @track data;
+    @track error;
+    @track columns = columns;
+    @track searchString;
+    @track initialRecords;
+ 
+    @wire(retrieveAccounts)
+    wiredAccount({ error, data }) {
+        if (data) {
+            console.log(data);
+            this.data = data;
+            this.initialRecords = data;
+            this.error = undefined;
+        } else if (error) {
+            this.error = error;
+            this.data = undefined;
+        }
+    }
+ 
+    handleSearch(event) {
+        const searchKey = event.target.value.toLowerCase();
+ 
+        if (searchKey) {
+            this.data = this.initialRecords;
+ 
+            if (this.data) {
+                let searchRecords = [];
+ 
+                for (let record of this.data) {
+                    let valuesArray = Object.values(record);
+ 
+                    for (let val of valuesArray) {
+                        console.log('val is ' + val);
+                        let strVal = String(val);
+ 
+                        if (strVal) {
+ 
+                            if (strVal.toLowerCase().includes(searchKey)) {
+                                searchRecords.push(record);
+                                break;
+                            }
+                        }
+                    }
+                }
+ 
+                console.log('Matched Accounts are ' + JSON.stringify(searchRecords));
+                this.data = searchRecords;
+            }
+        } else {
+            this.data = this.initialRecords;
+        }
+    }
+}
+
+***********************************************************************************************************
+
+WCFilterSearchDatatable.js-meta.xml :
+
+<?xml version="1.0"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>54.0</apiVersion>
+    <isExposed>true</isExposed>
+    <targets>
+        <target>lightning__HomePage</target>
+    </targets>
+</LightningComponentBundle>
